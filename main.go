@@ -329,40 +329,34 @@ Severity override map (default is "error"):
 	close(incomingIssues)
 	status := 0
 	if *githubFlag {
-		ref := os.Getenv("CIRCLE_SHA1")
+		var msg, state string
 		project := os.Getenv("CIRCLE_PROJECT_USERNAME")
 		repo := os.Getenv("CIRCLE_PROJECT_REPONAME")
 		buildNumber := os.Getenv("CIRCLE_BUILD_NUM")
 		targetUrl := fmt.Sprintf("https://circleci.com/gh/%s/%s/%s", project, repo, buildNumber)
+		if len(processedIssues) > 0 {
+			msg = fmt.Sprintf("There are %d warnings. Not cool.", len(processedIssues))
+			state = "error"
+		} else {
+			msg = "Clear."
+			state = "success"
+		}
+		context := "gometalinter"
 		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: "4c8b88bb776c4a16bbfe6b14dde9f41cfd089179"},
+			&oauth2.Token{AccessToken: "77627d1a06bc6ad099a185966609281af019c5d4"},
 		)
 		tc := oauth2.NewClient(oauth2.NoContext, ts)
-		context := "lint"
-		var status github.RepoStatus
 		client := github.NewClient(tc)
-		if len(processedIssues) > 0 {
-			msg := fmt.Sprintf("There are %d warnings @ <https://github.com/%s/%s/commit/%s|%s>. Not cool.", len(processedIssues), project, repo, ref, ref)
-			state := "error"
-			status = github.RepoStatus{
-				State:       &state,
-				TargetURL:   &targetUrl,
-				Description: &msg,
-				Context:     &context,
-			}
-		} else {
-			msg := "Clear."
-			state := "success"
-			status = github.RepoStatus{
-				State:       &state,
-				TargetURL:   &targetUrl,
-				Description: &msg,
-				Context:     &context,
-			}
+		status := github.RepoStatus{
+			State:       &state,
+			TargetURL:   &targetUrl,
+			Description: &msg,
+			Context:     &context,
 		}
 		_, _, err := client.Repositories.CreateStatus(project, repo, ref, &status)
 		if err != nil {
 			fmt.Println("ERROR:", err.Error())
+			status = 1
 		}
 	} else {
 		for issue := range processedIssues {
