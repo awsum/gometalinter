@@ -330,6 +330,7 @@ Severity override map (default is "error"):
 	status := 0
 	if *githubFlag {
 		var msg, state string
+		ref := os.Getenv("CIRCLE_SHA1")
 		project := os.Getenv("CIRCLE_PROJECT_USERNAME")
 		repo := os.Getenv("CIRCLE_PROJECT_REPONAME")
 		buildNumber := os.Getenv("CIRCLE_BUILD_NUM")
