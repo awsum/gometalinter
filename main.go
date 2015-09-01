@@ -349,13 +349,13 @@ Severity override map (default is "error"):
 		)
 		tc := oauth2.NewClient(oauth2.NoContext, ts)
 		client := github.NewClient(tc)
-		status := github.RepoStatus{
+		repoStatus := github.RepoStatus{
 			State:       &state,
 			TargetURL:   &targetUrl,
 			Description: &msg,
 			Context:     &context,
 		}
-		_, _, err := client.Repositories.CreateStatus(project, repo, ref, &status)
+		_, _, err := client.Repositories.CreateStatus(project, repo, ref, &repoStatus)
 		if err != nil {
 			fmt.Println("ERROR:", err.Error())
 			status = 1
