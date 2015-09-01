@@ -333,6 +333,7 @@ Severity override map (default is "error"):
 		ref := os.Getenv("CIRCLE_SHA1")
 		project := os.Getenv("CIRCLE_PROJECT_USERNAME")
 		repo := os.Getenv("CIRCLE_PROJECT_REPONAME")
+		token := os.Getenv("GITHUB_TOKEN")
 		buildNumber := os.Getenv("CIRCLE_BUILD_NUM")
 		targetUrl := fmt.Sprintf("https://circleci.com/gh/%s/%s/%s", project, repo, buildNumber)
 		if len(processedIssues) > 0 {
@@ -344,7 +345,7 @@ Severity override map (default is "error"):
 		}
 		context := "gometalinter"
 		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: "77627d1a06bc6ad099a185966609281af019c5d4"},
+			&oauth2.Token{AccessToken: token},
 		)
 		tc := oauth2.NewClient(oauth2.NoContext, ts)
 		client := github.NewClient(tc)
