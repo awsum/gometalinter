@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/go-github/github"
+	"golang.org/x/oauth2"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -130,7 +132,7 @@ var (
 	installMap = map[string]string{
 		"golint":      "github.com/golang/lint/golint",
 		"gotype":      "golang.org/x/tools/cmd/gotype",
-		"errcheck":    "github.com/alecthomas/errcheck",
+		"errcheck":    "github.com/kisielk/errcheck",
 		"defercheck":  "github.com/opennota/check/cmd/defercheck",
 		"varcheck":    "github.com/opennota/check/cmd/varcheck",
 		"structcheck": "github.com/opennota/check/cmd/structcheck",
@@ -156,6 +158,7 @@ var (
 	testFlag          = kingpin.Flag("tests", "Include test files for linters that support this option").Short('t').Bool()
 	deadlineFlag      = kingpin.Flag("deadline", "Cancel linters if they have not completed within this duration.").Default("5s").Duration()
 	errorsFlag        = kingpin.Flag("errors", "Only show errors.").Bool()
+	githubFlag        = kingpin.Flag("github", "").Bool()
 )
 
 func init() {
@@ -263,7 +266,6 @@ Severity override map (default is "error"):
 
 	if *installFlag {
 		doInstall()
-		return
 	}
 
 	runtime.GOMAXPROCS(*concurrencyFlag)
@@ -326,12 +328,50 @@ Severity override map (default is "error"):
 	wg.Wait()
 	close(incomingIssues)
 	status := 0
-	for issue := range processedIssues {
-		if *errorsFlag && issue.severity != Error {
-			continue
+	if *githubFlag {
+		ref := os.Getenv("CIRCLE_SHA1")
+		project := os.Getenv("CIRCLE_PROJECT_USERNAME")
+		repo := os.Getenv("CIRCLE_PROJECT_REPONAME")
+		buildNumber := os.Getenv("CIRCLE_BUILD_NUM")
+		targetUrl := fmt.Sprintf("https://circleci.com/gh/%s/%s/%s", project, repo, buildNumber)
+		ts := oauth2.StaticTokenSource(
+			&oauth2.Token{AccessToken: "4c8b88bb776c4a16bbfe6b14dde9f41cfd089179"},
+		)
+		tc := oauth2.NewClient(oauth2.NoContext, ts)
+		context := "lint"
+		var status github.RepoStatus
+		client := github.NewClient(tc)
+		if len(processedIssues) > 0 {
+			msg := fmt.Sprintf("There are %d warnings @ <https://github.com/%s/%s/commit/%s|%s>. Not cool.", len(processedIssues), project, repo, ref, ref)
+			state := "error"
+			status = github.RepoStatus{
+				State:       &state,
+				TargetURL:   &targetUrl,
+				Description: &msg,
+				Context:     &context,
+			}
+		} else {
+			msg := "Clear."
+			state := "success"
+			status = github.RepoStatus{
+				State:       &state,
+				TargetURL:   &targetUrl,
+				Description: &msg,
+				Context:     &context,
+			}
 		}
-		fmt.Println(issue.String())
-		status = 1
+		_, _, err := client.Repositories.CreateStatus(project, repo, ref, &status)
+		if err != nil {
+			fmt.Println("ERROR:", err.Error())
+		}
+	} else {
+		for issue := range processedIssues {
+			if *errorsFlag && issue.severity != Error {
+				continue
+			}
+			fmt.Println(issue.String())
+			status = 1
+		}
 	}
 	elapsed := time.Now().Sub(start)
 	debug("total elapsed time %s", elapsed)
